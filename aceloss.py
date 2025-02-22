@@ -145,7 +145,7 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         c_out = torch.zeros_like(y_pred)
         region_in = torch.abs(torch.sum(y_pred * ((label - c_in) ** 2)))
         region_out = torch.abs(
-            torch.mean((1 - y_pred) * ((label - c_out) ** 2)))
+            torch.sum((1 - y_pred) * ((label - c_out) ** 2)))
         region = u * region_in + region_out
         return region
 
@@ -157,7 +157,7 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         curvature = (beta + ci ** 2) * cjj + \
                     (beta + cj ** 2) * cii - 2 * ci * cj * cij
         curvature = torch.abs(curvature) / ((ci ** 2 + cj ** 2) ** 1.5 + beta)
-        elastica = torch.mean((a + b * (curvature ** 2)) * torch.abs(length))
+        elastica = torch.sum((a + b * (curvature ** 2)) * torch.abs(length))
         return elastica
 
     loss = region(y_pred, y_true, u=u) + elastica(y_pred, a=a, b=b)
@@ -538,7 +538,61 @@ class FastACELoss3DV2(nn.Module):
         # elastic
         elastic = torch.sum((self.alpha + self.beta * curvature ** 2) * length)
         return region + elastic
+    
+class FastACELoss2D(nn.Module):
+    """
+    Active contour-based elastic model loss
+    Adapted for 2D images using minpooling, maxpooling, and Laplace filtering.
+    """
 
+    def __init__(self, miu=1, alpha=1e-3, beta=2.0, classes=4, types="other"):
+        super(FastACELoss2D, self).__init__()
+        self.miu = miu
+        self.alpha = alpha
+        self.beta = beta
+        self.classes = classes
+        self.types = types
+        
+        # 2D Laplacian kernel
+        laplace_kernel = np.ones((3, 3))
+        laplace_kernel[1, 1] = -8
+        
+        self.laplace = nn.Parameter(
+            torch.from_numpy(laplace_kernel).float().unsqueeze(0).unsqueeze(0).expand(self.classes, 1, 3, 3),
+            requires_grad=False)
+        
+        self.laplace_operator = nn.Conv2d(self.classes, self.classes, groups=self.classes, kernel_size=3, stride=1,
+                                          padding=1, bias=False)
+        self.laplace_operator.weight = self.laplace
+
+    def forward(self, prediction, label):
+        min_pool_x = nn.functional.max_pool2d(prediction * -1, 3, 1, 1) * -1
+        contour = torch.relu(nn.functional.max_pool2d(min_pool_x, 3, 1, 1) - min_pool_x)
+        diff = self.laplace_operator(prediction)
+
+        # Length term
+        length = torch.abs(contour)
+
+        # Curvature term
+        if self.types:
+            curvature = torch.abs(diff)
+            curvature = (curvature - curvature.min()) / (curvature.max() - curvature.min() + 1e-8)
+        else:
+            curvature = torch.abs(diff) / ((length ** 2 + 1) ** 0.5 + 1e-8)
+            curvature = (curvature - curvature.min()) / (curvature.max() - curvature.min() + 1e-8)
+        
+        # Region term
+        label = label.float()
+        c_in = torch.ones_like(prediction)
+        c_out = torch.zeros_like(prediction)
+        region_in = torch.abs(torch.sum(prediction * ((label - c_in) ** 2)))
+        region_out = torch.abs(torch.sum((1 - prediction) * ((label - c_out) ** 2)))
+        region = self.miu * region_in + region_out
+
+        # Elastic term
+        elastic = torch.sum((self.alpha + self.beta * curvature ** 2) * length)
+        
+        return region + elastic
 
 # "test demo"
 # x2 = torch.rand((2, 3, 97, 80))
