@@ -145,7 +145,7 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         c_out = torch.zeros_like(y_pred)
         region_in = torch.abs(torch.sum(y_pred * ((label - c_in) ** 2)))
         region_out = torch.abs(
-            torch.sum((1 - y_pred) * ((label - c_out) ** 2)))
+            torch.mean((1 - y_pred) * ((label - c_out) ** 2)))
         region = u * region_in + region_out
         return region
 
@@ -157,7 +157,7 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         curvature = (beta + ci ** 2) * cjj + \
                     (beta + cj ** 2) * cii - 2 * ci * cj * cij
         curvature = torch.abs(curvature) / ((ci ** 2 + cj ** 2) ** 1.5 + beta)
-        elastica = torch.sum((a + b * (curvature ** 2)) * torch.abs(length))
+        elastica = torch.mean((a + b * (curvature ** 2)) * torch.abs(length))
         return elastica
 
     loss = region(y_pred, y_true, u=u) + elastica(y_pred, a=a, b=b)
@@ -509,7 +509,6 @@ class FastACELoss3DV2(nn.Module):
         min_pool_x = nn.functional.max_pool3d(predication * -1, 3, 1, 1) * -1
         contour = torch.relu(nn.functional.max_pool3d(
             min_pool_x, 3, 1, 1) - min_pool_x)
-
         diff = self.laplace_operator(predication)
 
         # length
@@ -541,34 +540,34 @@ class FastACELoss3DV2(nn.Module):
         return region + elastic
 
 
-"test demo"
-x2 = torch.rand((2, 3, 97, 80))
-y2 = torch.rand((2, 3, 97, 80))
-time1 = time.time()
-print("ACLoss:", ACLoss()(x2, y2).item())
-print(time.time() - time1)
-time2 = time.time()
-print("ACLossV2:", ACLossV2()(x2, y2).item())
-print(time.time() - time2)
-time3 = time.time()
-print("ACELoss:", ACELoss(x2, y2).item())
-print(time.time() - time3)
-time6 = time.time()
-x3 = torch.rand((2, 4, 112, 97, 80))
-y3 = torch.rand((2, 4, 112, 97, 80))
-time7 = time.time()
-print("ACLoss3D:", ACLoss3D()(x3, y3).item())
-print(time.time() - time7)
-time8 = time.time()
-print("ACLoss3DV2:", ACLoss3DV2()(x3, y3).item())
-print(time.time() - time8)
-time9 = time.time()
-print("ACELoss3D:", ACELoss3D().cuda()(x3.cuda(), y3.cuda()).item())
-print(time.time() - time9)
-time10 = time.time()
-print("FastACELoss3D:", FastACELoss3D().cuda()(x3.cuda(), y3.cuda()).item())
-print(time.time() - time10)
-time11 = time.time()
-print("FastACELoss3DV2:", FastACELoss3DV2().cuda()(x3.cuda(), y3.cuda()).item())
-print(time.time() - time11)
-time12 = time.time()
+# "test demo"
+# x2 = torch.rand((2, 3, 97, 80))
+# y2 = torch.rand((2, 3, 97, 80))
+# time1 = time.time()
+# print("ACLoss:", ACLoss()(x2, y2).item())
+# print(time.time() - time1)
+# time2 = time.time()
+# print("ACLossV2:", ACLossV2()(x2, y2).item())
+# print(time.time() - time2)
+# time3 = time.time()
+# print("ACELoss:", ACELoss(x2, y2).item())
+# print(time.time() - time3)
+# time6 = time.time()
+# x3 = torch.rand((2, 4, 112, 97, 80))
+# y3 = torch.rand((2, 4, 112, 97, 80))
+# time7 = time.time()
+# print("ACLoss3D:", ACLoss3D()(x3, y3).item())
+# print(time.time() - time7)
+# time8 = time.time()
+# print("ACLoss3DV2:", ACLoss3DV2()(x3, y3).item())
+# print(time.time() - time8)
+# time9 = time.time()
+# print("ACELoss3D:", ACELoss3D().cuda()(x3.cuda(), y3.cuda()).item())
+# print(time.time() - time9)
+# time10 = time.time()
+# print("FastACELoss3D:", FastACELoss3D().cuda()(x3.cuda(), y3.cuda()).item())
+# print(time.time() - time10)
+# time11 = time.time()
+# print("FastACELoss3DV2:", FastACELoss3DV2().cuda()(x3.cuda(), y3.cuda()).item())
+# print(time.time() - time11)
+# time12 = time.time()
