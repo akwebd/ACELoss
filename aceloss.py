@@ -143,9 +143,9 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         label = y_true.float()
         c_in = torch.ones_like(y_pred)
         c_out = torch.zeros_like(y_pred)
-        region_in = torch.abs(torch.sum(y_pred * ((label - c_in) ** 2)))
+        region_in = torch.abs(torch.mean(y_pred * ((label - c_in) ** 2)))
         region_out = torch.abs(
-            torch.sum((1 - y_pred) * ((label - c_out) ** 2)))
+            torch.mean((1 - y_pred) * ((label - c_out) ** 2)))
         region = u * region_in + region_out
         return region
 
@@ -157,7 +157,7 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
         curvature = (beta + ci ** 2) * cjj + \
                     (beta + cj ** 2) * cii - 2 * ci * cj * cij
         curvature = torch.abs(curvature) / ((ci ** 2 + cj ** 2) ** 1.5 + beta)
-        elastica = torch.sum((a + b * (curvature ** 2)) * torch.abs(length))
+        elastica = torch.mean((a + b * (curvature ** 2)) * torch.abs(length))
         return elastica
 
     loss = region(y_pred, y_true, u=u) + elastica(y_pred, a=a, b=b)
@@ -585,12 +585,12 @@ class FastACELoss2D(nn.Module):
         label = label.float()
         c_in = torch.ones_like(prediction)
         c_out = torch.zeros_like(prediction)
-        region_in = torch.abs(torch.sum(prediction * ((label - c_in) ** 2)))
-        region_out = torch.abs(torch.sum((1 - prediction) * ((label - c_out) ** 2)))
+        region_in = torch.abs(torch.mean(prediction * ((label - c_in) ** 2)))
+        region_out = torch.abs(torch.mean((1 - prediction) * ((label - c_out) ** 2)))
         region = self.miu * region_in + region_out
 
         # Elastic term
-        elastic = torch.sum((self.alpha + self.beta * curvature ** 2) * length)
+        elastic = torch.mean((self.alpha + self.beta * curvature ** 2) * length)
         
         return region + elastic
 
